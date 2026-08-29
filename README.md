@@ -4,6 +4,8 @@ Themeflow keeps an Omarchy desktop in rhythm with the day. It applies one
 theme during daylight, another at night, and can cycle through every wallpaper
 included with the active theme.
 
+![Themeflow settings](preview.png)
+
 ## Features
 
 - Native Omarchy Shell bar widget and settings popup
@@ -20,7 +22,7 @@ included with the active theme.
 
 ## Install
 
-After publishing the repository, install it through Omarchy's plugin manager:
+Install it through Omarchy's plugin manager:
 
 ```bash
 omarchy plugin add https://github.com/phuclh/omarchy-themeflow.git --enable
@@ -35,6 +37,28 @@ For local development from this checkout:
 The local installer validates the plugin, refuses to overwrite an existing
 installation, copies it into the user plugin directory, and enables its bar
 widget on the right.
+
+## Requirements
+
+- Omarchy Quattro with the Omarchy Shell plugin manager
+- `curl` for the optional approximate-location fallback
+- Network access to `wttr.in` only when automatic location is enabled and
+  Omarchy Weather has no saved coordinates
+
+Theme switching, wallpaper rotation, and sunrise/sunset calculation otherwise
+use Omarchy's built-in commands and run locally.
+
+## Remove
+
+Remove the plugin through Omarchy:
+
+```bash
+omarchy plugin remove io.github.phuclh.themeflow
+```
+
+Themeflow leaves `~/.config/themeflow/settings.json` in place so a reinstall can
+reuse your preferences. Delete `~/.config/themeflow` separately if you also
+want to remove the saved settings.
 
 ## Use
 
