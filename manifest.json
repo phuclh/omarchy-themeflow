@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.phuclh.themeflow",
+  "name": "Themeflow",
+  "version": "0.2.0",
+  "author": "Phuc Le",
+  "license": "MIT",
+  "description": "Switch Omarchy themes with the sun or a fixed schedule and rotate wallpapers automatically.",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Themeflow",
+    "description": "Day and night theme scheduling with wallpaper rotation",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "enabled": false,
+  "scheduleMode": "fixed",
+  "dayTheme": "Catppuccin Latte",
+  "nightTheme": "Tokyo Night",
+  "dayTime": "07:00",
+  "nightTime": "19:00",
+  "latitude": 0,
+  "longitude": 0,
+  "solarLocationConfigured": false,
+  "solarLocationMode": "automatic",
+  "solarLocationName": "",
+  "solarLocationSource": "",
+  "solarLocationUpdatedAtMs": 0,
+  "wallpaperRotationEnabled": true,
+  "wallpaperIntervalMinutes": 60
+}
