@@ -19,8 +19,6 @@ Item {
   readonly property string settingsPath: configDir + "/settings.json"
   readonly property string currentThemePath: stateHome + "/omarchy/current/theme.name"
   readonly property string weatherLocationPath: stateHome + "/omarchy/settings/weather.json"
-  readonly property string codexRefreshScript: resolvedLocalPath(
-    "scripts/refresh-codex-tui.sh")
 
   property bool configReady: false
   property bool settingsLoaded: false
@@ -78,12 +76,6 @@ Item {
         : Number(latitude).toFixed(3) + ", " + Number(longitude).toFixed(3))
       : "Location unavailable")
   readonly property bool busy: applyThemeProcess.running || wallpaperProcess.running
-
-  function resolvedLocalPath(relativePath) {
-    var value = String(Qt.resolvedUrl(relativePath))
-    if (value.indexOf("file://") === 0) return decodeURIComponent(value.substring(7))
-    return value
-  }
 
   function normalizeTheme(value) {
     return String(value || "")
@@ -550,7 +542,6 @@ Item {
         root.currentTheme = finishedTheme
         root.lastWallpaperAtMs = Date.now()
         root.lastAction = finishedTheme + " applied"
-        codexRefreshTimer.restart()
         currentThemeFile.reload()
       } else if (root.lastError === "") {
         root.lastError = "Could not apply " + finishedTheme + "."
@@ -579,22 +570,6 @@ Item {
       if (exitCode === 0) root.lastAction = "Wallpaper changed"
       else if (root.lastError === "") root.lastError = "Could not change the wallpaper."
     }
-  }
-
-  // Codex caches terminal foreground/background colors inside a running TUI.
-  // A standard resize notification makes it redraw after Ghostty reloads its
-  // palette without restarting the session or issuing an API request.
-  Timer {
-    id: codexRefreshTimer
-    interval: 250
-    repeat: false
-    onTriggered: if (!codexRefreshProcess.running)
-      codexRefreshProcess.running = true
-  }
-
-  Process {
-    id: codexRefreshProcess
-    command: [root.codexRefreshScript]
   }
 
   Process {
