@@ -16,6 +16,7 @@ included with the active theme.
 - Optional wallpaper rotation from 5 minutes to 1 day
 - One-click apply and next-wallpaper controls
 - Theme selectors with keyboard-capable search
+- Session-preserving Codex TUI color refresh after a theme change
 - Sunrise and sunset are calculated on-device after location discovery
 - Automation is off after a fresh install, so the desktop never changes before
   the user chooses to enable it
@@ -47,6 +48,11 @@ widget on the right.
 
 Theme switching, wallpaper rotation, and sunrise/sunset calculation otherwise
 use Omarchy's built-in commands and run locally.
+
+After a successful theme switch, Themeflow sends the standard `SIGWINCH`
+terminal-resize notification only to interactive Codex CLI processes attached
+to a terminal. This makes Codex redraw its cached colors without restarting the
+session, changing its transcript, or making an API request.
 
 ## Remove
 
