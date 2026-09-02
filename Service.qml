@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "Schedule.js" as Schedule
+import "Safety.js" as Safety
 
 Item {
   id: root
@@ -19,10 +20,18 @@ Item {
   readonly property string settingsPath: configDir + "/settings.json"
   readonly property string currentThemePath: stateHome + "/omarchy/current/theme.name"
   readonly property string weatherLocationPath: stateHome + "/omarchy/settings/weather.json"
+  readonly property string themeListScript: resolvedLocalPath(
+    "scripts/list-themes-bounded.sh")
+  readonly property int maxSettingsBytes: Safety.maxSettingsBytes()
+  readonly property int maxWeatherFileBytes: Safety.maxWeatherFileBytes()
+  readonly property int maxCurrentThemeBytes: Safety.maxCurrentThemeBytes()
+  readonly property int maxThemeListBytes: Safety.maxThemeListBytes()
+  readonly property int maxWeatherResponseBytes: Safety.maxWeatherResponseBytes()
 
   property bool configReady: false
   property bool settingsLoaded: false
   property bool pendingPersist: false
+  property bool themesLoaded: false
 
   property bool enabled: false
   property string scheduleMode: "fixed"
@@ -77,6 +86,13 @@ Item {
       : "Location unavailable")
   readonly property bool busy: applyThemeProcess.running || wallpaperProcess.running
 
+  function resolvedLocalPath(relativePath) {
+    var value = String(Qt.resolvedUrl(relativePath))
+    if (value.indexOf("file://") === 0)
+      return decodeURIComponent(value.substring(7))
+    return value
+  }
+
   function normalizeTheme(value) {
     return String(value || "")
       .trim()
@@ -86,7 +102,9 @@ Item {
   }
 
   function titleFromSlug(value) {
-    return String(value || "")
+    var safe = Safety.singleLine(value, Safety.maxThemeNameLength(), "")
+    if (safe === "") return ""
+    return safe
       .trim()
       .replace(/[_-]+/g, " ")
       .replace(/(^|\s)([a-z])/g, function(match, space, letter) {
@@ -120,7 +138,7 @@ Item {
     return themes.length > 0 ? String(themes[0]) : ""
   }
 
-  function resolveThemeChoices() {
+  function resolveThemeChoices(allowPersist) {
     if (themes.length === 0) return
     var resolvedDay = matchingTheme(dayTheme)
     var resolvedNight = matchingTheme(nightTheme)
@@ -132,37 +150,36 @@ Item {
     var changed = resolvedDay !== dayTheme || resolvedNight !== nightTheme
     dayTheme = resolvedDay
     nightTheme = resolvedNight
-    if (changed) persistSettings()
+    if (changed && allowPersist !== false) persistSettings()
   }
 
   function parseThemeList(raw) {
-    var found = []
-    var seen = ({})
-    var lines = String(raw || "").split("\n")
-    for (var i = 0; i < lines.length; i++) {
-      var theme = lines[i].trim()
-      var key = normalizeTheme(theme)
-      if (theme === "" || seen[key]) continue
-      seen[key] = true
-      found.push(theme)
+    var found = Safety.themeList(raw)
+    if (found.length === 0) {
+      themesLoaded = false
+      lastError = "No valid themes were returned by Omarchy."
+      return
     }
-    found.sort(function(a, b) { return a.localeCompare(b) })
     themes = found
+    themesLoaded = true
     resolveThemeChoices()
+    evaluateSchedule()
   }
 
-  function applySettings(raw) {
-    var parsed = ({})
-    try {
-      parsed = JSON.parse(String(raw || "{}"))
-    } catch (error) {
+  function applySettings(raw, allowPersist) {
+    var parsed = Safety.settingsObject(raw)
+    if (!parsed) {
+      parsed = ({})
+      allowPersist = false
       lastError = "Settings were invalid; safe defaults are in use."
     }
 
     enabled = parsed.enabled === undefined ? false : !!parsed.enabled
     scheduleMode = String(parsed.scheduleMode) === "solar" ? "solar" : "fixed"
-    dayTheme = String(parsed.dayTheme || "Catppuccin Latte")
-    nightTheme = String(parsed.nightTheme || "Tokyo Night")
+    dayTheme = Safety.singleLine(
+      parsed.dayTheme, Safety.maxThemeNameLength(), "Catppuccin Latte")
+    nightTheme = Safety.singleLine(
+      parsed.nightTheme, Safety.maxThemeNameLength(), "Tokyo Night")
     dayTime = validClock(parsed.dayTime) ? String(parsed.dayTime) : "07:00"
     nightTime = validClock(parsed.nightTime) ? String(parsed.nightTime) : "19:00"
     latitude = boundedNumber(parsed.latitude, -90, 90, 0)
@@ -175,15 +192,17 @@ Item {
       // Version 1 only had manually entered coordinates.
       solarLocationMode = solarLocationConfigured ? "manual" : "automatic"
     }
-    solarLocationName = String(parsed.solarLocationName || "")
-    solarLocationSource = String(parsed.solarLocationSource || "")
-    solarLocationUpdatedAtMs = Math.max(0, Number(parsed.solarLocationUpdatedAtMs) || 0)
+    solarLocationName = Safety.optionalSingleLine(
+      parsed.solarLocationName, Safety.maxLocationNameLength())
+    solarLocationSource = Safety.locationSource(parsed.solarLocationSource)
+    solarLocationUpdatedAtMs = boundedNumber(
+      parsed.solarLocationUpdatedAtMs, 0, Date.now(), 0)
     wallpaperRotationEnabled = parsed.wallpaperRotationEnabled === undefined
       ? true : !!parsed.wallpaperRotationEnabled
     wallpaperIntervalMinutes = Math.round(
       boundedNumber(parsed.wallpaperIntervalMinutes, 5, 1440, 60))
     settingsLoaded = true
-    resolveThemeChoices()
+    resolveThemeChoices(allowPersist)
     evaluateSchedule()
   }
 
@@ -238,7 +257,7 @@ Item {
     if (scheduleMode === "solar" && solarLocationMode === "automatic"
         && automaticLocationLoading && !solarLocationConfigured) return
     if (!enabled && forceApply !== true) return
-    var target = activeTheme
+    var target = themesLoaded ? matchingTheme(activeTheme) : ""
     if (target !== "" && (forceApply === true
         || normalizeTheme(target) !== normalizeTheme(currentTheme))) {
       requestTheme(target)
@@ -248,7 +267,7 @@ Item {
   }
 
   function requestTheme(theme) {
-    var target = String(theme || "").trim()
+    var target = matchingTheme(theme)
     if (target === "") return
     if (applyThemeProcess.running) {
       pendingTheme = target
@@ -385,22 +404,30 @@ Item {
     automaticLocationResolved = false
     lastError = ""
     lastAction = "Detecting location…"
-    weatherLocationFile.reload()
+    reloadWeatherLocation()
+  }
+
+  function reloadSettings() {
+    if (!settingsReadProcess.running) settingsReadProcess.running = true
+  }
+
+  function reloadWeatherLocation() {
+    if (!weatherLocationReadProcess.running)
+      weatherLocationReadProcess.running = true
+  }
+
+  function reloadCurrentTheme() {
+    if (!currentThemeReadProcess.running) currentThemeReadProcess.running = true
   }
 
   function applyWeatherLocation(raw) {
     if (!automaticLocationLoading) return
-    var parsed = ({})
-    try {
-      parsed = JSON.parse(String(raw || "{}"))
-    } catch (error) {
-      parsed = ({})
-    }
-    if (validLocation(parsed.latitude, parsed.longitude)) {
+    var location = Safety.storedLocation(raw)
+    if (location && validLocation(location.latitude, location.longitude)) {
       finishAutomaticLocation(
-        String(parsed.name || "Omarchy Weather location"),
-        parsed.latitude,
-        parsed.longitude,
+        location.name,
+        location.latitude,
+        location.longitude,
         "omarchy-weather")
       return
     }
@@ -414,23 +441,11 @@ Item {
   }
 
   function applyAutomaticLocationResponse(raw) {
-    var parsed = ({})
-    try {
-      parsed = JSON.parse(String(raw || "{}"))
-    } catch (error) {
-      return
-    }
-    var area = parsed.nearest_area && parsed.nearest_area.length > 0
-      ? parsed.nearest_area[0] : null
-    if (!area || !validLocation(area.latitude, area.longitude)) return
-
-    var name = "Approximate location"
-    if (area.areaName && area.areaName.length > 0 && area.areaName[0].value)
-      name = String(area.areaName[0].value)
-    if (area.region && area.region.length > 0 && area.region[0].value)
-      name += ", " + String(area.region[0].value)
+    var location = Safety.networkLocation(raw)
+    if (!location || !validLocation(location.latitude, location.longitude)) return
     automaticLocationResolved = true
-    finishAutomaticLocation(name, area.latitude, area.longitude, "network")
+    finishAutomaticLocation(
+      location.name, location.latitude, location.longitude, "network")
   }
 
   function finishAutomaticLocation(name, latitudeValue, longitudeValue, source) {
@@ -439,8 +454,10 @@ Item {
     longitude = Number(longitudeValue)
     solarLocationConfigured = true
     solarLocationMode = "automatic"
-    solarLocationName = String(name || "Approximate location")
-    solarLocationSource = String(source || "automatic")
+    solarLocationName = Safety.singleLine(
+      name, Safety.maxLocationNameLength(), "Approximate location")
+    solarLocationSource = Safety.locationSource(source)
+    if (solarLocationSource === "") solarLocationSource = "automatic"
     solarLocationUpdatedAtMs = Date.now()
     automaticLocationLoading = false
     lastError = ""
@@ -470,7 +487,7 @@ Item {
         root.lastError = "Could not create the Themeflow settings folder."
         return
       }
-      settingsFile.reload()
+      root.reloadSettings()
       if (root.pendingPersist) root.persistSettings()
     }
   }
@@ -478,63 +495,122 @@ Item {
   FileView {
     id: settingsFile
     path: root.settingsPath
+    preload: false
+    blockAllReads: true
     atomicWrites: true
     watchChanges: true
     printErrors: false
-    onFileChanged: reload()
-    onLoaded: root.applySettings(text())
-    onLoadFailed: {
-      if (!root.settingsLoaded) root.applySettings("{}")
-      if (root.configReady) root.persistSettings()
-    }
+    onFileChanged: root.reloadSettings()
   }
 
   FileView {
     id: weatherLocationFile
     path: root.weatherLocationPath
+    preload: false
+    blockAllReads: true
+    watchChanges: true
     printErrors: false
-    onLoaded: root.applyWeatherLocation(text())
-    onLoadFailed: if (root.automaticLocationLoading)
-      root.startAutomaticLocationLookup()
+    onFileChanged: if (root.automaticLocationLoading)
+      root.reloadWeatherLocation()
   }
 
   FileView {
     id: currentThemeFile
     path: root.currentThemePath
+    preload: false
+    blockAllReads: true
     watchChanges: true
     printErrors: false
-    onFileChanged: reload()
-    onLoaded: {
-      root.currentTheme = root.titleFromSlug(text())
+    onFileChanged: root.reloadCurrentTheme()
+  }
+
+  Process {
+    id: settingsReadProcess
+    command: [
+      "head", "-c", String(root.maxSettingsBytes + 1), root.settingsPath
+    ]
+    stdout: StdioCollector {
+      id: settingsReadOutput
+      waitForEnd: true
+    }
+    onExited: function(exitCode) {
+      if (exitCode !== 0) {
+        if (!root.settingsLoaded) root.applySettings("{}")
+        if (root.configReady) root.persistSettings()
+        return
+      }
+      if (settingsReadOutput.data.length > root.maxSettingsBytes) {
+        if (!root.settingsLoaded) root.applySettings("{}", false)
+        root.lastError = "Settings exceed the 16 KiB safety limit; defaults are in use."
+        return
+      }
+      root.applySettings(settingsReadOutput.text)
+    }
+  }
+
+  Process {
+    id: weatherLocationReadProcess
+    command: [
+      "head", "-c", String(root.maxWeatherFileBytes + 1),
+      root.weatherLocationPath
+    ]
+    stdout: StdioCollector {
+      id: weatherLocationReadOutput
+      waitForEnd: true
+    }
+    onExited: function(exitCode) {
+      if (!root.automaticLocationLoading) return
+      if (exitCode === 0
+          && weatherLocationReadOutput.data.length <= root.maxWeatherFileBytes) {
+        root.applyWeatherLocation(weatherLocationReadOutput.text)
+      } else {
+        root.startAutomaticLocationLookup()
+      }
+    }
+  }
+
+  Process {
+    id: currentThemeReadProcess
+    command: [
+      "head", "-c", String(root.maxCurrentThemeBytes + 1),
+      root.currentThemePath
+    ]
+    stdout: StdioCollector {
+      id: currentThemeReadOutput
+      waitForEnd: true
+    }
+    onExited: function(exitCode) {
+      if (exitCode !== 0
+          || currentThemeReadOutput.data.length > root.maxCurrentThemeBytes) return
+      var nextTheme = root.titleFromSlug(currentThemeReadOutput.text)
+      if (nextTheme === "") return
+      root.currentTheme = nextTheme
       root.evaluateSchedule()
     }
   }
 
   Process {
     id: themeListProcess
-    command: ["omarchy", "theme", "list"]
+    command: [root.themeListScript]
     stdout: StdioCollector {
+      id: themeListOutput
       waitForEnd: true
-      onStreamFinished: root.parseThemeList(text)
     }
-    stderr: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var message = String(text || "").trim()
-        if (message !== "") root.lastError = message
+    onExited: function(exitCode) {
+      if (exitCode !== 0) {
+        root.lastError = "Could not read the installed Omarchy themes."
+        return
       }
+      if (themeListOutput.data.length > root.maxThemeListBytes) {
+        root.lastError = "The Omarchy theme list exceeded its 32 KiB safety limit."
+        return
+      }
+      root.parseThemeList(themeListOutput.text)
     }
   }
 
   Process {
     id: applyThemeProcess
-    stderr: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var message = String(text || "").trim()
-        if (message !== "") root.lastError = message
-      }
-    }
     onExited: function(exitCode) {
       var finishedTheme = root.applyingTheme
       root.applyingTheme = ""
@@ -542,7 +618,7 @@ Item {
         root.currentTheme = finishedTheme
         root.lastWallpaperAtMs = Date.now()
         root.lastAction = finishedTheme + " applied"
-        currentThemeFile.reload()
+        root.reloadCurrentTheme()
       } else if (root.lastError === "") {
         root.lastError = "Could not apply " + finishedTheme + "."
       }
@@ -558,13 +634,6 @@ Item {
   Process {
     id: wallpaperProcess
     command: ["omarchy", "theme", "bg", "next"]
-    stderr: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var message = String(text || "").trim()
-        if (message !== "") root.lastError = message
-      }
-    }
     onExited: function(exitCode) {
       root.lastWallpaperAtMs = Date.now()
       if (exitCode === 0) root.lastAction = "Wallpaper changed"
@@ -574,13 +643,25 @@ Item {
 
   Process {
     id: automaticLocationProcess
-    command: ["curl", "-fsS", "--max-time", "8", "https://wttr.in/?format=j1"]
+    command: [
+      "curl", "-fsS",
+      "--connect-timeout", "4",
+      "--max-time", "8",
+      "--max-filesize", String(root.maxWeatherResponseBytes),
+      "--range", "0-" + String(root.maxWeatherResponseBytes - 1),
+      "--header", "Accept: application/json",
+      "https://wttr.in/?format=j1"
+    ]
     stdout: StdioCollector {
+      id: automaticLocationOutput
       waitForEnd: true
-      onStreamFinished: root.applyAutomaticLocationResponse(text)
     }
     onExited: function(exitCode) {
       if (root.solarLocationMode !== "automatic") return
+      if (exitCode === 0
+          && automaticLocationOutput.data.length <= root.maxWeatherResponseBytes) {
+        root.applyAutomaticLocationResponse(automaticLocationOutput.text)
+      }
       if (root.automaticLocationResolved) return
       root.automaticLocationLoading = false
       root.lastError = exitCode === 0
@@ -602,7 +683,7 @@ Item {
   Component.onCompleted: {
     configDirectoryProcess.running = true
     themeListProcess.running = true
-    currentThemeFile.reload()
+    root.reloadCurrentTheme()
   }
 
   IpcHandler {

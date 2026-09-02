@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.phuclh.themeflow",
   "name": "Themeflow",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": "Phuc Le",
   "license": "MIT",
   "description": "Switch Omarchy themes with the sun or a fixed schedule and rotate wallpapers automatically.",

@@ -127,6 +127,7 @@ BarWidget {
         spacing: Style.space(10)
 
         Text {
+          textFormat: Text.PlainText
           text: root.periodIcon
           color: root.bar.foreground
           font.family: root.bar.fontFamily
@@ -139,6 +140,7 @@ BarWidget {
           spacing: Style.space(2)
 
           Text {
+            textFormat: Text.PlainText
             text: "Themeflow"
             color: root.bar.foreground
             font.family: root.bar.fontFamily
@@ -147,6 +149,7 @@ BarWidget {
           }
 
           Text {
+            textFormat: Text.PlainText
             text: root.themeflowService
               ? root.themeflowService.statusLabel
               : "Service unavailable"
@@ -180,6 +183,7 @@ BarWidget {
         spacing: Style.space(7)
 
         Text {
+          textFormat: Text.PlainText
           text: "THEMES"
           color: root.mutedForeground
           font.family: root.bar.fontFamily
@@ -224,6 +228,7 @@ BarWidget {
         spacing: Style.space(7)
 
         Text {
+          textFormat: Text.PlainText
           text: "SCHEDULE"
           color: root.mutedForeground
           font.family: root.bar.fontFamily
@@ -256,6 +261,7 @@ BarWidget {
             spacing: Style.space(3)
 
             Text {
+              textFormat: Text.PlainText
               text: "Day begins"
               color: root.mutedForeground
               font.family: root.bar.fontFamily
@@ -279,6 +285,7 @@ BarWidget {
             spacing: Style.space(3)
 
             Text {
+              textFormat: Text.PlainText
               text: "Night begins"
               color: root.mutedForeground
               font.family: root.bar.fontFamily
@@ -326,6 +333,7 @@ BarWidget {
               && root.themeflowService.solarLocationMode === "automatic"
 
             Text {
+              textFormat: Text.PlainText
               width: parent.width - refreshLocationButton.width - parent.spacing
               anchors.verticalCenter: parent.verticalCenter
               text: "Uses your Omarchy Weather location first, then approximate network location."
@@ -359,6 +367,7 @@ BarWidget {
               spacing: Style.space(3)
 
               Text {
+                textFormat: Text.PlainText
                 text: "Latitude"
                 color: root.mutedForeground
                 font.family: root.bar.fontFamily
@@ -382,6 +391,7 @@ BarWidget {
               spacing: Style.space(3)
 
               Text {
+                textFormat: Text.PlainText
                 text: "Longitude"
                 color: root.mutedForeground
                 font.family: root.bar.fontFamily
@@ -402,6 +412,7 @@ BarWidget {
           }
 
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: root.themeflowService && root.themeflowService.scheduleSource === "fixed-fallback"
               ? "Sun times are unavailable here; fixed times are being used."
@@ -420,6 +431,7 @@ BarWidget {
         spacing: Style.space(7)
 
         Text {
+          textFormat: Text.PlainText
           text: "WALLPAPERS"
           color: root.mutedForeground
           font.family: root.bar.fontFamily
@@ -494,6 +506,7 @@ BarWidget {
       }
 
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           visible: root.themeflowService
             && (root.themeflowService.lastError !== ""

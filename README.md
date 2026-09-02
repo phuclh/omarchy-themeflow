@@ -48,6 +48,12 @@ widget on the right.
 Theme switching, wallpaper rotation, and sunrise/sunset calculation otherwise
 use Omarchy's built-in commands and run locally.
 
+Themeflow bounds every file and subprocess read before QML parses it: settings
+are limited to 16 KiB, the Omarchy Weather location file to 8 KiB, the current
+theme name to 1 KiB, the installed-theme list to 32 KiB, and the optional
+`wttr.in` response to 64 KiB. Theme and location fields and list sizes are also
+bounded, and externally sourced UI strings are rendered as plain text.
+
 ## Remove
 
 Remove the plugin through Omarchy:
@@ -103,8 +109,10 @@ Validate the manifest and run the pure schedule tests:
 ```bash
 omarchy plugin validate .
 TZ=America/Los_Angeles node tests/test_schedule.js
+node tests/test_safety.js
 ```
 
 The scheduling tests cover ordinary day/night boundaries, schedules that span
 midnight, sunrise/sunset calculation, and the fixed-time fallback used when
-solar coordinates are invalid or unavailable.
+solar coordinates are invalid or unavailable. The safety tests cover output,
+file, field, item-count, and plain-text rendering limits.
