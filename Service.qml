@@ -1,4 +1,5 @@
 import QtQuick
+import Qt.labs.folderlistmodel
 import Quickshell
 import Quickshell.Io
 import "Schedule.js" as Schedule
@@ -19,6 +20,7 @@ Item {
   readonly property string configDir: configHome + "/themeflow"
   readonly property string settingsPath: configDir + "/settings.json"
   readonly property string currentThemePath: stateHome + "/omarchy/current/theme.name"
+  readonly property string themesDir: configHome + "/omarchy/themes"
   readonly property string weatherLocationPath: stateHome + "/omarchy/settings/weather.json"
   readonly property string themeListScript: resolvedLocalPath(
     "scripts/list-themes-bounded.sh")
@@ -420,6 +422,10 @@ Item {
     if (!currentThemeReadProcess.running) currentThemeReadProcess.running = true
   }
 
+  function reloadThemes() {
+    if (!themeListProcess.running) themeListProcess.running = true
+  }
+
   function applyWeatherLocation(raw) {
     if (!automaticLocationLoading) return
     var location = Safety.storedLocation(raw)
@@ -522,6 +528,25 @@ Item {
     watchChanges: true
     printErrors: false
     onFileChanged: root.reloadCurrentTheme()
+  }
+
+  // Themes are directories under ~/.config/omarchy/themes, so the list read at
+  // startup goes stale the moment one is installed or removed. An install drops
+  // any existing directory before cloning the new one, which arrives here as two
+  // changes; the debounce collapses them into one listing once the clone lands.
+  FolderListModel {
+    id: themeDirectories
+    folder: "file://" + encodeURI(root.themesDir)
+    showDirs: true
+    showFiles: false
+    showDotAndDotDot: false
+    onCountChanged: themeListDebounce.restart()
+  }
+
+  Timer {
+    id: themeListDebounce
+    interval: 750
+    onTriggered: root.reloadThemes()
   }
 
   Process {
@@ -682,7 +707,7 @@ Item {
 
   Component.onCompleted: {
     configDirectoryProcess.running = true
-    themeListProcess.running = true
+    root.reloadThemes()
     root.reloadCurrentTheme()
   }
 

@@ -13,6 +13,8 @@ included with the active theme.
 - Automatic solar location from Omarchy Weather, with an approximate network
   fallback when Weather has no saved coordinates
 - Separate day and night theme selection from installed Omarchy themes
+- Newly installed or removed themes appear in the selectors right away,
+  without restarting the shell
 - Optional wallpaper rotation from 5 minutes to 1 day
 - One-click apply and next-wallpaper controls
 - Theme selectors with keyboard-capable search
