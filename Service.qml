@@ -720,6 +720,7 @@ Item {
         period: root.activePeriod,
         activeTheme: root.activeTheme,
         currentTheme: root.currentTheme,
+        themes: root.themes.length,
         mode: root.scheduleMode,
         locationMode: root.solarLocationMode,
         location: root.solarLocationLabel,
