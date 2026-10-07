@@ -110,9 +110,12 @@ Validate the manifest and run the pure schedule tests:
 omarchy plugin validate .
 TZ=America/Los_Angeles node tests/test_schedule.js
 node tests/test_safety.js
+node tests/test_collectors.js
 ```
 
 The scheduling tests cover ordinary day/night boundaries, schedules that span
 midnight, sunrise/sunset calculation, and the fixed-time fallback used when
 solar coordinates are invalid or unavailable. The safety tests cover output,
-file, field, item-count, and plain-text rendering limits.
+file, field, item-count, and plain-text rendering limits. The collector tests
+exercise QML process exit handlers with ArrayBuffer fixtures, including
+multibyte payloads that exceed byte limits.
