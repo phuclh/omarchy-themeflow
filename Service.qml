@@ -539,7 +539,7 @@ Item {
         if (root.configReady) root.persistSettings()
         return
       }
-      if (settingsReadOutput.data.length > root.maxSettingsBytes) {
+      if (settingsReadOutput.data.byteLength > root.maxSettingsBytes) {
         if (!root.settingsLoaded) root.applySettings("{}", false)
         root.lastError = "Settings exceed the 16 KiB safety limit; defaults are in use."
         return
@@ -561,7 +561,7 @@ Item {
     onExited: function(exitCode) {
       if (!root.automaticLocationLoading) return
       if (exitCode === 0
-          && weatherLocationReadOutput.data.length <= root.maxWeatherFileBytes) {
+          && weatherLocationReadOutput.data.byteLength <= root.maxWeatherFileBytes) {
         root.applyWeatherLocation(weatherLocationReadOutput.text)
       } else {
         root.startAutomaticLocationLookup()
@@ -581,7 +581,7 @@ Item {
     }
     onExited: function(exitCode) {
       if (exitCode !== 0
-          || currentThemeReadOutput.data.length > root.maxCurrentThemeBytes) return
+          || currentThemeReadOutput.data.byteLength > root.maxCurrentThemeBytes) return
       var nextTheme = root.titleFromSlug(currentThemeReadOutput.text)
       if (nextTheme === "") return
       root.currentTheme = nextTheme
@@ -601,7 +601,7 @@ Item {
         root.lastError = "Could not read the installed Omarchy themes."
         return
       }
-      if (themeListOutput.data.length > root.maxThemeListBytes) {
+      if (themeListOutput.data.byteLength > root.maxThemeListBytes) {
         root.lastError = "The Omarchy theme list exceeded its 32 KiB safety limit."
         return
       }
@@ -659,7 +659,7 @@ Item {
     onExited: function(exitCode) {
       if (root.solarLocationMode !== "automatic") return
       if (exitCode === 0
-          && automaticLocationOutput.data.length <= root.maxWeatherResponseBytes) {
+          && automaticLocationOutput.data.byteLength <= root.maxWeatherResponseBytes) {
         root.applyAutomaticLocationResponse(automaticLocationOutput.text)
       }
       if (root.automaticLocationResolved) return
